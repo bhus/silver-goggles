@@ -1,0 +1,10 @@
+out/
+messages.db
+*.swp
+.idea/
+.vscode/
+.metals/
+.bloop/
+project/project/
+project/target/
+target/
