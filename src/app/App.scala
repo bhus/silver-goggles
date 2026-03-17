@@ -21,12 +21,22 @@ object App extends cask.MainRoutes {
     }
   )
 
-  // AI Service setup (Real vs Mock)
-  val aiService: ai.AIService = sys.env.get("GEMINI_API_KEY") match {
-    case Some(key) => new ai.GeminiAIService(key)
-    case None => 
-      println("WARNING: GEMINI_API_KEY not found. Using MockAIService.")
-      ai.MockAIService
+  // AI Service setup (Multi-provider)
+  val aiService: ai.AIService = {
+    sys.env.get("GROQ_API_KEY") match {
+      case Some(key) => 
+        println("INFO: Using GroqAIService (Lightning Fast)")
+        new ai.GroqAIService(key)
+      case None => 
+        sys.env.get("GEMINI_API_KEY") match {
+          case Some(key) => 
+            println("INFO: Using GeminiAIService")
+            new ai.GeminiAIService(key)
+          case None => 
+            println("WARNING: No AI keys found. Using MockAIService.")
+            ai.MockAIService
+        }
+    }
   }
 
   // Initialize table
@@ -40,23 +50,38 @@ object App extends cask.MainRoutes {
       db.run(Message.select.sortBy(_.timestamp).desc)
     }
     
-    // Demonstrate "Safe AI" by validating LLM response
-    val aiSummary: Option[BoardSummary] = aiService.summarize(messages).toOption
+    println(s"DEBUG: Fetching summary for ${messages.size} messages using ${aiService.getClass.getSimpleName}")
+    
+    val aiResult = aiService.summarize(messages)
+    
+    val aiSummaryHtml = aiResult match {
+      case Right(summary) => 
+        div(style := "background: #ffffcc; padding: 15px; border: 2px solid green; border-radius: 10px; margin-bottom: 20px")(
+          h3("✨ AI Insights (Safe AI)"),
+          p(b(summary.summary)),
+          p(i(s"Detected Topics: ${summary.topics.mkString(", ")}"))
+        )
+      case Left(error) if error.contains("429") || error.contains("Quota") =>
+        div(style := "background: #ffe6e6; padding: 15px; border: 2px solid red; border-radius: 10px; margin-bottom: 20px")(
+          h3("🛑 AI Quota Exceeded"),
+          p("Your Gemini API key has no remaining quota or is restricted."),
+          p(code(error))
+        )
+      case Left(error) => 
+        div(style := "background: #f4f4f4; padding: 10px; border: 1px solid #ccc; margin-bottom: 20px")(
+          p(i(s"AI Summary Unavailable: $error"))
+        )
+    }
 
     cask.Response(
       html(
         head(
+          meta(charset := "utf-8"),
           title("Li Haoyi Stack: Safe AI Edition")
         ),
         body(
           h1("Message Board (ScalaSql Edition)"),
-          aiSummary.map { summary =>
-            div(style := "background: #f4f4f4; padding: 10px; border-radius: 5px; margin-bottom: 20px")(
-              h3("AI Summary"),
-              p(summary.summary),
-              p(i(s"Topics: ${summary.topics.mkString(", ")}"))
-            )
-          }.getOrElse(div()),
+          aiSummaryHtml,
           form(action := "/message", method := "post")(
             input(`type` := "text", name := "content", placeholder := "Type a message..."),
             button(`type` := "submit")("Post")
