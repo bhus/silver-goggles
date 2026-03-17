@@ -21,6 +21,14 @@ object App extends cask.MainRoutes {
     }
   )
 
+  // AI Service setup (Real vs Mock)
+  val aiService: ai.AIService = sys.env.get("GEMINI_API_KEY") match {
+    case Some(key) => new ai.GeminiAIService(key)
+    case None => 
+      println("WARNING: GEMINI_API_KEY not found. Using MockAIService.")
+      ai.MockAIService
+  }
+
   // Initialize table
   dbClient.transaction { db =>
     db.updateRaw("CREATE TABLE IF NOT EXISTS message (id INTEGER PRIMARY KEY AUTOINCREMENT, content TEXT, timestamp TEXT)")
@@ -33,7 +41,7 @@ object App extends cask.MainRoutes {
     }
     
     // Demonstrate "Safe AI" by validating LLM response
-    val aiSummary: Option[BoardSummary] = MockAIService.summarize(messages).toOption
+    val aiSummary: Option[BoardSummary] = aiService.summarize(messages).toOption
 
     cask.Response(
       html(
