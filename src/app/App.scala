@@ -4,7 +4,8 @@ import scalatags.Text.all._
 import scalatags.Text.tags2.title
 import scalasql._
 import scalasql.SqliteDialect._
-import model.Message
+import model.{Message, Id}
+import ai.{BoardSummary, MockAIService}
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 
@@ -27,17 +28,27 @@ object App extends cask.MainRoutes {
 
   @cask.get("/")
   def hello() = {
-    val messages = dbClient.transaction { db =>
+    val messages: Seq[Message[Id]] = dbClient.transaction { db =>
       db.run(Message.select.sortBy(_.timestamp).desc)
     }
+    
+    // Demonstrate "Safe AI" by validating LLM response
+    val aiSummary: Option[BoardSummary] = MockAIService.summarize(messages).toOption
 
     cask.Response(
       html(
         head(
-          title("Li Haoyi Stack with ScalaSql")
+          title("Li Haoyi Stack: Safe AI Edition")
         ),
         body(
           h1("Message Board (ScalaSql Edition)"),
+          aiSummary.map { summary =>
+            div(style := "background: #f4f4f4; padding: 10px; border-radius: 5px; margin-bottom: 20px")(
+              h3("AI Summary"),
+              p(summary.summary),
+              p(i(s"Topics: ${summary.topics.mkString(", ")}"))
+            )
+          }.getOrElse(div()),
           form(action := "/message", method := "post")(
             input(`type` := "text", name := "content", placeholder := "Type a message..."),
             button(`type` := "submit")("Post")
