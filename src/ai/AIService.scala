@@ -70,7 +70,6 @@ class GeminiAIService(apiKey: String) extends AIService {
       case Success(res) => res
       case Failure(ex) => 
         val msg = ex.getMessage
-        println(s"DEBUG: $msg")
         Left(msg)
     }
   }
@@ -129,7 +128,6 @@ class GroqAIService(apiKey: String) extends AIService {
       case Success(res) => res
       case Failure(ex) => 
         val msg = ex.getMessage
-        println(s"DEBUG: Groq Error: $msg")
         Left(msg)
     }
   }

@@ -50,8 +50,6 @@ object App extends cask.MainRoutes {
       db.run(Message.select.sortBy(_.timestamp).desc)
     }
     
-    println(s"DEBUG: Fetching summary for ${messages.size} messages using ${aiService.getClass.getSimpleName}")
-    
     val aiResult = aiService.summarize(messages)
     
     val aiSummaryHtml = aiResult match {
